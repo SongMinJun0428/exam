@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>회원가입 및 로그인</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js"></script>
+  <style>
+    body {
+      background: linear-gradient(to right, #74ebd5, #acb6e5);
+      font-family: 'Noto Sans KR', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      flex-direction: column;
+      margin: 0;
+    }
+    .box {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 1rem;
+      box-shadow: 0 0 20px rgba(0,0,0,0.1);
+      width: 320px;
+    }
+    input, button {
+      margin: 0.5rem 0;
+      padding: 0.5rem;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    #main, #signup {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box" id="login">
+  <h2>로그인</h2>
+  <input id="loginUsername" placeholder="아이디" />
+  <input id="loginPassword" type="password" placeholder="비밀번호" />
+  <button onclick="loginDirect()">로그인</button>
+  <p>아이디가 없으신가요? <a href="#" onclick="showSignup()">회원가입</a></p>
+  <div id="loginStatus"></div>
+</div>
+
+<div class="box" id="signup">
+  <h2>회원가입</h2>
+  <input id="signupUsername" placeholder="아이디" />
+  <input id="signupEmail" placeholder="이메일" />
+  <input id="signupPassword" type="password" placeholder="비밀번호 (6자 이상)" />
+  <input id="signupName" placeholder="이름" />
+  <input id="signupGrade" type="number" placeholder="학년" />
+  <input id="signupClass" type="number" placeholder="반" />
+  <button onclick="signup()">가입하기</button>
+  <p><a href="#" onclick="showLogin()">← 로그인으로 돌아가기</a></p>
+  <div id="signupStatus"></div>
+</div>
+
+<div class="box" id="main">
+  <h2>환영합니다!</h2>
+  <p>로그인 성공! 메인 페이지에 접근하셨습니다.</p>
+  <button onclick="logout()">로그아웃</button>
+</div>
+
+<script>
+  const { createClient } = supabase;
+  const supabaseClient = createClient(
+    'https://mrxdunucsuaenxpsaofk.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1yeGR1bnVjc3VhZW54cHNhb2ZrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDk0NTQxOTQsImV4cCI6MjA2NTAzMDE5NH0.L_kfZtDvhGRN8sadqrSgJXcaxesLZWq-xaabQnGJIjg'
+  );
+
+  async function loginDirect() {
+    const username = document.getElementById('loginUsername').value;
+    const password = document.getElementById('loginPassword').value;
+
+    const { data: user, error } = await supabaseClient
+      .from('users')
+      .select('*')
+      .eq('username', username)
+      .eq('password', password)
+      .single();
+
+    if (user) {
+      showMain(); // 로그인 성공
+    } else {
+      document.getElementById('loginStatus').innerText = '아이디 또는 비밀번호가 틀렸습니다.';
+    }
+  }
+
+
+  async function signup() {
+    const username = document.getElementById('signupUsername').value;
+    const email = document.getElementById('signupEmail').value;
+    const password = document.getElementById('signupPassword').value;
+    const name = document.getElementById('signupName').value;
+    const grade = parseInt(document.getElementById('signupGrade').value);
+    const classNum = parseInt(document.getElementById('signupClass').value);
+
+    const { data, error } = await supabaseClient.auth.signUp({
+      email: email,
+      password: password
+    });
+
+    if (error) {
+      document.getElementById('signupStatus').innerText = '회원가입 실패: ' + error.message;
+      return;
+    }
+
+    if (!data || !data.user) {
+      document.getElementById('signupStatus').innerText = '회원가입은 되었지만 사용자 정보 저장에 실패했습니다.';
+      return;
+    }
+
+    const { error: insertError } = await supabaseClient.from('users').upsert({
+      id: data.user.id,
+      username,
+      email,
+      name,
+      grade,
+      class: classNum,
+      password,  // 추가됨 ⚠️
+      coin_balance: 0
+    });
+
+
+    if (insertError) {
+      document.getElementById('signupStatus').innerText = '사용자 정보 저장 중 오류가 발생했습니다.';
+      return;
+    }
+
+    document.getElementById('signupStatus').innerText = '회원가입 완료! 로그인 해주세요.';
+    showLogin();
+  }
+
+  function showMain() {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('signup').style.display = 'none';
+    document.getElementById('main').style.display = 'block';
+  }
+
+  function showSignup() {
+    document.getElementById('login').style.display = 'none';
+    document.getElementById('signup').style.display = 'block';
+  }
+
+  function showLogin() {
+    document.getElementById('main').style.display = 'none';
+    document.getElementById('signup').style.display = 'none';
+    document.getElementById('login').style.display = 'block';
+  }
+
+  async function logout() {
+    await supabaseClient.auth.signOut();
+    showLogin();
+  }
+
+  supabaseClient.auth.getSession().then(({ data: { session } }) => {
+    if (session) {
+      showMain();
+    } else {
+      showLogin();
+    }
+  });
+</script>
+
+</body>
+</html>
